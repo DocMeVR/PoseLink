@@ -130,6 +130,39 @@ def rest_direction(armature, bone):
     return (b.tail_local - b.head_local).normalized()
 
 
+class FakeLayout:
+    """Stands in for a panel layout: accepts every call, so a panel's draw code runs without a window."""
+
+    def __getattr__(self, name):
+        return lambda *args, **kwargs: FakeLayout()
+
+    def __setattr__(self, name, value):
+        pass
+
+
+def draw_every_panel(addon):
+    """Run the draw code of every panel and list once; returns the errors."""
+    errors = []
+    settings_obj = settings()
+    for cls in addon.ui.classes:
+        try:
+            if issubclass(cls, bpy.types.Panel):
+                if not hasattr(cls, "poll") or cls.poll(bpy.context):
+                    cls.draw(type("Panel", (), {"layout": FakeLayout()})(), bpy.context)
+            elif cls.__name__.endswith("outfits"):
+                for item in settings_obj.outfits:
+                    cls.draw_item(None, bpy.context, FakeLayout(), settings_obj, item, 0, None, "")
+            elif cls.__name__.endswith("bones") and settings_obj.outfits:
+                for item in settings_obj.outfits[0].rows[:3]:
+                    cls.draw_item(None, bpy.context, FakeLayout(), settings_obj.outfits[0], item, 0, None, "")
+            elif cls.__name__.endswith("toggles"):
+                for item in settings_obj.states:
+                    cls.draw_item(None, bpy.context, FakeLayout(), settings_obj, item, 0, None, "")
+        except Exception as error:
+            errors.append(f"{cls.__name__}: {error!r}")
+    return errors
+
+
 def run():
     addon = load_addon()
     addon.register()
@@ -198,6 +231,9 @@ def run():
         check(key.value == 1.0 and shirt.hide_get(), "applying a toggle restores shape keys and visibility")
         op("apply_toggle", index=1)
         check(key.value == 0.0 and not shirt.hide_get(), "the other toggle switches back")
+
+        problems = draw_every_panel(addon)
+        check(not problems, f"panels should draw without errors: {problems}")
 
         op("check_weights")
         report = st.last_report
