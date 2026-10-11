@@ -211,8 +211,6 @@ class OPL_PT_toggles(_Base, bpy.types.Panel):
         row = lay.row()
         row.template_list("OPL_UL_states", "", st, "states", st, "state_index", rows=3)
         row.operator("opl.state_delete", text="", icon="REMOVE")
-        if "redhood_config.py" in bpy.data.texts:
-            lay.operator("opl.state_import", icon="IMPORT")
 
 
 class OPL_PT_weights(_Base, bpy.types.Panel):
@@ -242,10 +240,7 @@ class OPL_PT_finish(_Base, bpy.types.Panel):
         return S(context).base is not None
 
     def draw(self, context):
-        lay = self.layout
-        if "run_avatar_qa.py" in bpy.data.texts:
-            lay.operator("opl.run_qa", icon="CHECKMARK")
-        lay.operator("opl.export_prep", icon="EXPORT")
+        self.layout.operator("opl.export_prep", icon="EXPORT")
 
 
 CLASSES = (OPL_UL_outfits, OPL_UL_rows, OPL_UL_saved, OPL_UL_states, OPL_PT_main, OPL_PT_mapping, OPL_PT_pose,

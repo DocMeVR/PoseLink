@@ -435,7 +435,7 @@ class OPL_OT_reel(bpy.types.Operator):
             core.remove_reel(st, st.base)
             self.report({"INFO"}, "Pose reel removed")
             return {"FINISHED"}
-        keys = [k for k, _, _ in core.pose_names(st) if not k.startswith("qa:")]
+        keys = [k for k, _, _ in core.pose_names(st)]
         n = core.build_reel(st, st.base, keys)
         self.report({"INFO"}, f"Pose reel: {n} poses on frames 1-{1 + (n - 1) * 10}. Press Space to play.")
         return {"FINISHED"}
@@ -499,23 +499,7 @@ class OPL_OT_state_delete(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class OPL_OT_state_import(bpy.types.Operator):
-    bl_idname = "opl.state_import"
-    bl_label = "Import QA States"
-    bl_description = "Create toggle states from the avatar_qa config in this .blend"
-    bl_options = {"REGISTER", "UNDO"}
-
-    def execute(self, context):
-        st = S(context)
-        got = core.states_from_config(core.armature_meshes([st.base] + outfits(st)) if st.base else [])
-        for name, data in got.items():
-            s = next((s for s in st.states if s.name == name), None) or st.states.add()
-            s.name, s.data = name, data
-        self.report({"INFO"}, f"Imported {len(got)} states")
-        return {"FINISHED"}
-
-
-# ---------------------------------------------------------------- weights / export / QA
+# ---------------------------------------------------------------- weights / export
 def _weight_meshes(context, st):
     if st.weight_scope == "SELECTED":
         return [o for o in context.selected_objects if o.type == "MESH"]
@@ -588,28 +572,8 @@ class OPL_OT_export_prep(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class OPL_OT_run_qa(bpy.types.Operator):
-    bl_idname = "opl.run_qa"
-    bl_label = "Run Avatar QA"
-    bl_description = "Run the embedded avatar_qa suite (text block run_avatar_qa.py); report in avatar_qa_report.txt"
-
-    def execute(self, context):
-        txt = bpy.data.texts.get("run_avatar_qa.py")
-        if txt is None:
-            self.report({"ERROR"}, "No run_avatar_qa.py text block in this file")
-            return {"CANCELLED"}
-        if context.mode != "OBJECT":
-            bpy.ops.object.mode_set(mode="OBJECT")
-        ns = {"__name__": "__main__"}
-        exec(compile(txt.as_string(), "run_avatar_qa.py", "exec"), ns)
-        s = ns["rep"]["summary"]
-        self.report({"INFO"}, f"QA: PASS {s['PASS']}  WARN {s['WARN']}  FAIL {s['FAIL']} (see avatar_qa_report.txt)")
-        return {"FINISHED"}
-
-
 CLASSES = (OPL_MapRow, OPL_Outfit, OPL_Saved, OPL_Settings,
            OPL_OT_detect, OPL_OT_add_outfit, OPL_OT_remove_outfit, OPL_OT_refresh_map, OPL_OT_link, OPL_OT_unlink,
            OPL_OT_mute, OPL_OT_pose_mode, OPL_OT_apply_pose, OPL_OT_rest, OPL_OT_save_pose, OPL_OT_delete_pose,
            OPL_OT_reel, OPL_OT_swing_reset, OPL_OT_state_capture, OPL_OT_state_apply, OPL_OT_state_delete,
-           OPL_OT_state_import, OPL_OT_weights_check, OPL_OT_weights_fix, OPL_OT_export_prep,
-           OPL_OT_run_qa)
+           OPL_OT_weights_check, OPL_OT_weights_fix, OPL_OT_export_prep)

@@ -184,43 +184,26 @@ def facing(arm):
     return Matrix.Identity(3) if front_y < 0 else Matrix.Rotation(math.pi, 3, "Z")
 
 
-def config_library():
-    """Poses/states from an embedded avatar_qa config (redhood_config.py text block), if any."""
-    txt = bpy.data.texts.get("redhood_config.py")
-    if not txt:
-        return {}, {}
-    try:
-        ns = {"__name__": "redhood_config", "__file__": "redhood_config.py"}
-        exec(compile(txt.as_string(), "redhood_config.py", "exec"), ns)
-        return ns["CONFIG"]["poses"], ns["CONFIG"].get("states", {})
-    except Exception as e:
-        print("PoseLink: could not read redhood_config.py:", e)
-        return {}, {}
-
-
 def pose_names(settings):
     names = [("lib:" + k, k, "Built-in test pose") for k in POSES]
     names += [("cus:" + p.name, "★ " + p.name, "Your saved pose") for p in settings.custom_poses]
-    qa_poses, _ = config_library()
-    names += [("qa:" + k, "QA: " + k, "Pose from the avatar_qa config") for k in qa_poses]
     return names
 
 
-def _rotate_bones(arms, spec, amount, by_role):
+def _rotate_bones(arms, spec, amount):
+    """spec = {humanoid role: [[axis, degrees], ...]}, axes in the armature's canonical frame."""
     for a in arms:
         frame = facing(a)
-        roles = {r: n for n, r in bones.humanoid_roles(a.data.bones.keys()).items()} if by_role else None
-        to_arm = a.matrix_world.to_3x3().normalized().inverted()
+        roles = {r: n for n, r in bones.humanoid_roles(a.data.bones.keys()).items()}
         for key, rots in spec.items():
-            bn = roles.get(key) if by_role else key
+            bn = roles.get(key)
             pb = a.pose.bones.get(bn) if bn else None
             if pb is None:
                 continue
             rest_inv = a.data.bones[bn].matrix_local.to_3x3().inverted()
             q = Quaternion()
             for axis, deg in rots:
-                # built-in poses are written in the armature's canonical frame; config poses in world axes
-                ax = (frame @ Vector(axis)) if by_role else (to_arm @ Vector(axis))
+                ax = frame @ Vector(axis)
                 q = Quaternion((rest_inv @ ax).normalized(), math.radians(deg * amount)) @ q
             pb.rotation_mode = "QUATERNION"
             pb.rotation_quaternion = q
@@ -234,14 +217,11 @@ def clear_pose(arms):
 
 
 def apply_pose(settings, key, arms, amount=1.0):
-    """key: 'lib:<name>' (humanoid roles), 'cus:<name>' (saved bone rotations), 'qa:<name>' (avatar_qa config)."""
+    """key: 'lib:<name>' (built-in pose by humanoid role) or 'cus:<name>' (saved bone rotations)."""
     clear_pose(arms)
     kind, _, name = key.partition(":")
     if kind == "lib":
-        _rotate_bones(arms, resolve(POSES, name), amount, by_role=True)
-    elif kind == "qa":
-        qa_poses, _ = config_library()
-        _rotate_bones(arms, resolve(qa_poses, name), amount, by_role=False)
+        _rotate_bones(arms, resolve(POSES, name), amount)
     elif kind == "cus":
         p = next((p for p in settings.custom_poses if p.name == name), None)
         if p:
@@ -460,17 +440,6 @@ def apply_state(settings, data):
             kb = o.data.shape_keys.key_blocks.get(kn)
             if kb:
                 kb.value = mine.get(on, {}).get(kn, 0.0)
-
-
-def states_from_config(meshes):
-    """Convert avatar_qa config states (hide list + shape keys) into toggle-state JSON."""
-    _, cfg_states = config_library()
-    hidden_any = {n for s in cfg_states.values() for n in s.get("hide", [])}
-    out = {}
-    for name, s in cfg_states.items():
-        vis = {n: n not in s.get("hide", []) for n in hidden_any}
-        out[name] = json.dumps({"vis": vis, "keys": s.get("shape_keys", {})})
-    return out
 
 
 # --------------------------------------------------------------------------- weights (rules for game engine export)
