@@ -1,13 +1,4 @@
-bl_info = {
-    "name": "PoseLink",
-    "author": "DocMe",
-    "version": (1, 0, 0),
-    "blender": (4, 2, 0),
-    "location": "View3D > Sidebar > PoseLink",
-    "description": "Pose a character and all of its outfits together (bone link), test poses and pose reel, "
-                   "chain swing and gravity hang preview, toggles, weight check and fix",
-    "category": "Rigging",
-}
+"""PoseLink: pose a character and all of its outfits together. Blender 4.2+ extension, see blender_manifest.toml."""
 
 if "bpy" in locals():
     import importlib
