@@ -28,12 +28,16 @@ The links are ordinary Copy Transforms constraints named `OutfitLink`; they don'
 **Prepare for Export** before exporting so nothing is posed.
 
 ## Install
-Build the extension zip, it lands in `dist/`:
+1. Download `pose_link-x.y.z.zip` from the latest [release](https://github.com/DocMeVR/PoseLink/releases/latest).
+2. Blender → Edit → Preferences → Get Extensions → ⌄ → **Install from Disk…** → pick the zip.
+
+To build the zip yourself from this folder (it lands in `dist/`):
 
     mkdir dist
     blender --command extension build --source-dir . --output-dir dist
 
-Then Blender → Edit → Preferences → Get Extensions → ⌄ → **Install from Disk…** → the zip from `dist/`.
+Releases come from release-please: conventional commits on `main` open a release pull request that bumps the
+version in `blender_manifest.toml` and writes `CHANGELOG.md`; merging it creates the release and attaches the zip.
 
 ## Code
 | File | |
