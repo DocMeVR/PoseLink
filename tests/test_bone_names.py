@@ -3,8 +3,8 @@ import os
 import sys
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import bones  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pose_link"))
+import bone_names as bones  # noqa: E402
 
 REDHOOD_BASE = ["Hips", "Spine", "Chest", "Neck", "Head", "LeftEye", "RightEye", "Shoulder_L", "UpperArm_L",
                 "LowerArm_L", "Wrist_L", "Thunb1_L", "Thunb2_L", "Thunb3_L", "Index1_L", "Index2_L", "Index3_L",

@@ -15,10 +15,10 @@ import bpy
 from mathutils import Quaternion, Vector
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ADDON_DIR = os.path.join(ROOT, "pose_link") if os.path.isdir(os.path.join(ROOT, "pose_link")) else ROOT
+ADDON_DIR = os.path.join(ROOT, "pose_link")
 
-SETTINGS = "opl"          # scene property of the add-on
-OPS = "opl"               # operator prefix
+SETTINGS = "poselink"     # scene property of the add-on
+OPS = "poselink"          # operator prefix
 
 
 def load_addon():
@@ -137,6 +137,17 @@ def run():
         body, outfit, body_mesh, shirt = build_scene()
         st = settings()
 
+        # a file saved by the add-on's first version keeps its settings under "opl"
+        scene = bpy.context.scene
+        scene.bl_system_properties_get(do_create=True)["opl"] = {
+            "base": body, "states": [{"name": "Old toggle", "data": "{}"}], "hang_strength": 0.3}
+        check(addon.properties.take_over_old_settings(scene), "old settings should be found")
+        check(st.base == body and [s.name for s in st.states] == ["Old toggle"] and abs(st.hang_strength - 0.3) < 1e-6,
+              "old settings move to scene.poselink")
+        check("opl" not in scene.bl_system_properties_get(), "the old settings are removed after moving")
+        st.states.clear()
+        st.base = None
+
         op("detect")
         check(st.base == body, f"detect should pick Body as the base, got {st.base}")
         check([i.obj for i in st.outfits] == [outfit], "detect should find the outfit armature")
@@ -178,22 +189,22 @@ def run():
         key.value = 1.0
         shirt.hide_set(True)
         st.new_state_name = "Shirt off"
-        op("state_capture")
+        op("save_toggle")
         key.value = 0.0
         shirt.hide_set(False)
         st.new_state_name = "Shirt on"
-        op("state_capture")
-        op("state_apply", index=0)
+        op("save_toggle")
+        op("apply_toggle", index=0)
         check(key.value == 1.0 and shirt.hide_get(), "applying a toggle restores shape keys and visibility")
-        op("state_apply", index=1)
+        op("apply_toggle", index=1)
         check(key.value == 0.0 and not shirt.hide_get(), "the other toggle switches back")
 
-        op("weights_check")
+        op("check_weights")
         report = st.last_report
         check("Shirt" in report and "over limit 1" in report and "unweighted 1" in report,
               f"weight check should report the shirt's problems, got: {report!r}")
-        op("weights_fix", "EXEC_DEFAULT")
-        op("weights_check")
+        op("fix_weights", "EXEC_DEFAULT")
+        op("check_weights")
         check("over limit" not in st.last_report, f"fix should limit to 4 bones, got: {st.last_report!r}")
 
         chest.rotation_quaternion = Quaternion((1, 0, 0), math.radians(20))
@@ -204,9 +215,9 @@ def run():
         bpy.context.view_layer.update()
         check(chest.matrix_basis.to_quaternion().angle > math.radians(19), "a saved pose applies again")
 
-        op("reel")
+        op("pose_reel")
         check(body.animation_data and body.animation_data.action, "the pose reel puts an action on the base")
-        op("reel", remove=True)
+        op("pose_reel", remove=True)
         check(not (body.animation_data and body.animation_data.action), "removing the reel clears the action")
 
         op("pose_mode")
@@ -216,11 +227,11 @@ def run():
 
         st.pose = "lib:Arms up"
         st.hang = True
-        op("export_prep")
+        op("prepare_export")
         check(not st.hang, "export prep switches hang off")
         check(all(pb.matrix_basis.to_quaternion().angle < 1e-6 for pb in body.pose.bones), "export prep rests the pose")
 
-        op("mute")
+        op("pause")
         links = [c for pb in outfit.pose.bones for c in pb.constraints if c.type == "COPY_TRANSFORMS"]
         check(links and all(c.mute for c in links), "pause mutes every link")
         op("unlink")

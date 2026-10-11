@@ -7,7 +7,7 @@
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
       "extra-files": [
-        { "type": "toml", "path": "blender_manifest.toml", "jsonpath": "$.version" }
+        { "type": "toml", "path": "pose_link/blender_manifest.toml", "jsonpath": "$.version" }
       ]
     }
   }

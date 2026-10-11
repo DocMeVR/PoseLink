@@ -14,13 +14,13 @@ from mathutils import Quaternion, Vector
 import importlib.util
 
 # load the add-on from this repo (not whatever is installed) under a private name
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pose_link")
 _spec = importlib.util.spec_from_file_location("_poselink_src", os.path.join(_ROOT, "__init__.py"),
                                                submodule_search_locations=[_ROOT])
 _pkg = importlib.util.module_from_spec(_spec)
 sys.modules["_poselink_src"] = _pkg
 _spec.loader.exec_module(_pkg)
-from _poselink_src import core  # noqa: E402
+from _poselink_src import chains  # noqa: E402
 
 
 def _arm():
@@ -64,7 +64,7 @@ def run():
         rigid = _dir(ob, "Cape_1")
         if rigid.angle(_rest_dir(ob, "Cape_1")) < math.radians(35):
             fails.append("setup: chain root should follow the bent parent")
-        core.hang(ob, ["Cape_1"], 1.0)
+        chains.hang(ob, ["Cape_1"], 1.0)
         bpy.context.view_layer.update()
         a = math.degrees(_dir(ob, "Cape_1").angle(_rest_dir(ob, "Cape_1")))
         if a > 0.01:
@@ -73,7 +73,7 @@ def run():
         if a > 0.01:
             fails.append(f"strength 1: the rest of the chain should follow the root, off by {a:.3f} deg")
         head = ob.pose.bones["Cape_1"].head.copy()
-        core.hang(ob, ["Cape_1"], 0.5)
+        chains.hang(ob, ["Cape_1"], 0.5)
         bpy.context.view_layer.update()
         # the hang builds up along the chain (2 bones here): the root keeps sqrt(0.5) of the 40 deg bend,
         # the tip ends up with half of it - the top follows the chest, the hem hangs
@@ -85,16 +85,16 @@ def run():
             fails.append(f"strength 0.5: tip expected 20 deg from rest, got {a:.3f}")
         if (ob.pose.bones["Cape_1"].head - head).length > 1e-6:
             fails.append("hang must not move the root's head (it stays attached to the parent)")
-        changed = core.hang(ob, ["Cape_1"], 0.5)
+        changed = chains.hang(ob, ["Cape_1"], 0.5)
         if changed:
             fails.append("re-applying the same hang must report no change (keeps the live handler from looping)")
-        core.hang(ob, ["Cape_1"], 0.0)
+        chains.hang(ob, ["Cape_1"], 0.0)
         bpy.context.view_layer.update()
         a = math.degrees(_dir(ob, "Cape_1").angle(rigid))
         if a > 0.01:
             fails.append(f"strength 0: root should move rigidly with the parent, off by {a:.3f} deg")
         _bend(ob, 0)
-        core.hang(ob, ["Cape_1"], 1.0)
+        chains.hang(ob, ["Cape_1"], 1.0)
         q = ob.pose.bones["Cape_1"].rotation_quaternion
         if abs(q.angle) > 1e-5:
             fails.append("at rest the hang rotation must be identity")
