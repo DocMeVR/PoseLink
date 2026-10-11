@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/DocMeVR/PoseLink/compare/1.0.0...1.1.0) (2026-10-11)
+
+
+### Features
+
+* **link:** match outfit bones by the body's own bone names ([346a2c1](https://github.com/DocMeVR/PoseLink/commit/346a2c15f0dc946eb181c6814c1cf23e233c7f52))
+
 ## 1.0.0 (2026-10-11)
 
 
