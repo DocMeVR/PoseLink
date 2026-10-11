@@ -120,50 +120,74 @@ def humanoid_roles(names):
     return {name: role for role, name in chosen.items()}
 
 
-def _affixes(unmatched, base):
-    pre, suf = Counter(), Counter()
-    for o in unmatched:
-        s = _without_prefixes(o)
-        for b in base:
-            if len(b) < 3 or s == b:
+def _name_key(name):
+    """What is left of a bone name when case, separators, '.001', 'Armature|' or 'mixamorig:' and the way the side
+    is written do not count: 'upper_arm.L', 'UpperArm_L' and 'LeftUpperArm' all give ('Left', 'upperarm')."""
+    words, side = _words(name)
+    rest = []
+    for i, word in enumerate(words):
+        if side is None and word in SIDE_WORDS and i in (0, len(words) - 1):
+            side = SIDE_WORDS[word]
+        else:
+            rest.append(word)
+    return side, "".join(rest)
+
+
+def _shared_affixes(outfit_names, body_names):
+    """Prefixes and suffixes that turn at least two outfit bone names into body bone names ('RH_', '_dress')."""
+    prefixes, suffixes = Counter(), Counter()
+    for outfit_name in outfit_names:
+        name = _without_prefixes(outfit_name)
+        for body_name in body_names:
+            if len(body_name) < 3 or name == body_name:
                 continue
-            if s.endswith(b):
-                pre[s[: len(s) - len(b)]] += 1
-            if s.startswith(b):
-                suf[s[len(b):]] += 1
-    return {p for p, c in pre.items() if c >= 2}, {x for x, c in suf.items() if c >= 2}
+            if name.endswith(body_name):
+                prefixes[name[: len(name) - len(body_name)]] += 1
+            if name.startswith(body_name):
+                suffixes[name[len(body_name):]] += 1
+    return ({p for p, count in prefixes.items() if count >= 2},
+            {s for s, count in suffixes.items() if count >= 2})
 
 
 def match_bones(outfit, base, overrides=None):
-    """{outfit bone: (base bone, method)}; method in manual / exact / affix / humanoid. Unmatched bones are left out
-    (they are outfit-only bones such as skirt or cape chains and simply follow their parents)."""
+    """Find the body bone each outfit bone follows, by the body's own bone names.
+
+    Returns {outfit bone: (body bone, how)}, how being 'manual', 'exact' or 'similar'. Similar means the same
+    name apart from case, separators, a '.001' or 'mixamorig:' style addition, the way the side is written
+    (_L, .L, Left) or a prefix or suffix the outfit puts on many bones (RH_). Different words (ForeArm vs
+    LowerArm) are not guessed. Bones without a match belong to the outfit only (skirt, cape) and follow their
+    parent. `overrides` holds the body bones the user picked by hand; an empty string means no link.
+    """
     overrides = overrides or {}
-    base_set = set(base)
-    out = {}
-    for o in outfit:
-        if o in overrides:
-            if overrides[o] in base_set:
-                out[o] = (overrides[o], "manual")
-            continue
-        if o in base_set:
-            out[o] = (o, "exact")
-    rest = [o for o in outfit if o not in out and o not in overrides]
-    lower = {b.lower(): b for b in base}
-    pre, suf = _affixes(rest, base)
-    for o in rest:
-        s = _without_prefixes(o)
-        cands = [s] + [s[len(p):] for p in pre if p and s.startswith(p)] + [s[: len(s) - len(x)] for x in suf if x and s.endswith(x)]
-        for c in cands:
-            if c in base_set:
-                out[o] = (c, "affix"); break
-            if c.lower() in lower:
-                out[o] = (lower[c.lower()], "affix"); break
-    rest = [o for o in rest if o not in out]
-    if rest:
-        ro = humanoid_roles(outfit)
-        rb = {r: b for b, r in humanoid_roles(base).items()}
-        for o in rest:
-            r = ro.get(o)
-            if r and r in rb:
-                out[o] = (rb[r], "humanoid")
-    return out
+    body = set(base)
+    body_by_key = {}
+    for name in base:
+        body_by_key.setdefault(_name_key(name), []).append(name)
+
+    def similar_body_bone(name):
+        if name in body:
+            return name
+        found = body_by_key.get(_name_key(name), [])
+        return found[0] if len(found) == 1 else None   # two body bones look alike: don't guess
+
+    matches = {}
+    for name in outfit:
+        if name in overrides:
+            if overrides[name] in body:
+                matches[name] = (overrides[name], "manual")
+        elif name in body:
+            matches[name] = (name, "exact")
+
+    left = [name for name in outfit if name not in matches and name not in overrides]
+    prefixes, suffixes = _shared_affixes(left, base)
+    for name in left:
+        bare = _without_prefixes(name)
+        candidates = ([name, bare]
+                      + [bare[len(p):] for p in prefixes if p and bare.startswith(p)]
+                      + [bare[: len(bare) - len(s)] for s in suffixes if s and bare.endswith(s)])
+        for candidate in candidates:
+            found = similar_body_bone(candidate)
+            if found:
+                matches[name] = (found, "similar")
+                break
+    return matches
