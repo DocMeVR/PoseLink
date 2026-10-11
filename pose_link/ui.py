@@ -61,6 +61,20 @@ def draw_hang_row(layout, settings):
     strength.prop(settings, "hang_strength", text="", slider=True)
 
 
+def draw_fit_warning(layout, settings):
+    """A red box when the active outfit's bones are not where the body's bones are."""
+    if not (0 <= settings.outfit_index < len(settings.outfits)):
+        return
+    entry = settings.outfits[settings.outfit_index]
+    misplaced = linking.misplaced_bones(entry, settings.base) if entry.obj else []
+    if misplaced:
+        name, distance = max(misplaced, key=lambda item: item[1])
+        box = layout.box()
+        box.alert = True
+        box.label(text=f"{len(misplaced)} bones are not where the base bones are", icon="ERROR")
+        box.label(text=f"Furthest: {name}, {distance * 1000:.0f} mm. Made for another body?")
+
+
 class SidebarPanel:
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -99,20 +113,7 @@ class POSELINK_PT_main(SidebarPanel, bpy.types.Panel):
         row.operator("poselink.pose_mode", text="Exit Pose Mode" if posing else "Pose Base Armature",
                      icon="OBJECT_DATAMODE" if posing else "POSE_HLT", depress=posing)
         draw_hang_row(layout, settings)
-        self.draw_fit_warning(layout, settings)
-
-    @staticmethod
-    def draw_fit_warning(layout, settings):
-        if not (0 <= settings.outfit_index < len(settings.outfits)):
-            return
-        entry = settings.outfits[settings.outfit_index]
-        misplaced = linking.misplaced_bones(entry, settings.base) if entry.obj else []
-        if misplaced:
-            name, distance = max(misplaced, key=lambda item: item[1])
-            box = layout.box()
-            box.alert = True
-            box.label(text=f"{len(misplaced)} bones are not where the base bones are", icon="ERROR")
-            box.label(text=f"Furthest: {name}, {distance * 1000:.0f} mm. Made for another body?")
+        draw_fit_warning(layout, settings)
 
 
 class POSELINK_PT_bones(SidebarPanel, bpy.types.Panel):
